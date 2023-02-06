@@ -2,6 +2,7 @@
 #include <math.h>
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/select.h>
@@ -26,10 +27,13 @@
 
 # define MODE_INIT 105
 # define MODE_HOME 104
+# define MODE_CLIK 99 
 # define MODE_STOP 115
+# define MODE_NULL 110
 
 #define WHEEL_DOF 4
 #define PANDA_DOF 7
+#define EE_DOF 2
 #define VIRTUAL_DOF 6
 
 class HuskyController
@@ -42,7 +46,14 @@ class HuskyController
         void computeControlInput();
         void moveJointPosition(Eigen::Vector7d target_position, double duration);
         void moveJointPositionTorque(Eigen::Vector7d target_position, double duration);
+        void CLIK(Eigen::Vector3d target_position, Eigen::Matrix3d target_rotation, double duration);
+        void CLIK_traj();
+        unsigned int ReadTextFile(Eigen::VectorXd &x_traj, Eigen::VectorXd &z_traj, Eigen::VectorXd &xdot_traj, Eigen::VectorXd &zdot_traj);
+        Eigen::MatrixXd JacobianUpdate(Eigen::Vector7d qd_);
+        Eigen::Isometry3d PositionUpdate(Eigen::Vector7d qd_);
+
         void moveHuskyPositionVelocity(Eigen::Vector2d input_velocity);
+        void moveEndEffector(bool mode);
         void printData();
     
     private:
@@ -50,6 +61,10 @@ class HuskyController
         double cur_time_;
         double pre_time_;
         double init_time_;
+
+        unsigned int traj_tick_ = 0;
+        unsigned int tick_limit_;
+        Eigen::VectorXd x_traj_, z_traj_, xdot_traj_, zdot_traj_;
 
         int mode_ = 0;
         double mode_init_time_ =  0.0;
@@ -66,7 +81,8 @@ class HuskyController
         DataContainer &dc_;
 
         bool is_init_ = true;
-        
+        bool is_read_ = true;
+
         double sim_time_ = 0.0;
 
         // Robot State
@@ -116,6 +132,8 @@ class HuskyController
         // Mobile robot
         Eigen::VectorXd input_vel;
         Eigen::VectorXd wheel_vel;
+
+        Eigen::Vector2d ee_;
    
 };
 

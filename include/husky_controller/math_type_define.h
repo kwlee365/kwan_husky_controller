@@ -1,7 +1,6 @@
 #ifndef MATH_TYPE_DEFINE_H
 #define MATH_TYPE_DEFINE_H
 
-
 #define DEG2RAD (0.01745329251994329576923690768489)
 // constexpr size_t MAX_DOF=50;
 
@@ -11,19 +10,18 @@
 
 #define GRAVITY 9.80665
 #define MAX_DOF 50U
-#define RAD2DEG 1/DEG2RAD
-
+#define RAD2DEG 1 / DEG2RAD
 
 namespace Eigen
 {
 
 	// Eigen default type definition
-#define EIGEN_MAKE_TYPEDEFS(Type, TypeSuffix, Size, SizeSuffix)   \
-  typedef Matrix<Type, Size, Size> Matrix##SizeSuffix##TypeSuffix;  \
-  typedef Matrix<Type, Size, 1>    Vector##SizeSuffix##TypeSuffix;  \
-  typedef Matrix<Type, 1, Size>    RowVector##SizeSuffix##TypeSuffix;
+#define EIGEN_MAKE_TYPEDEFS(Type, TypeSuffix, Size, SizeSuffix)      \
+	typedef Matrix<Type, Size, Size> Matrix##SizeSuffix##TypeSuffix; \
+	typedef Matrix<Type, Size, 1> Vector##SizeSuffix##TypeSuffix;    \
+	typedef Matrix<Type, 1, Size> RowVector##SizeSuffix##TypeSuffix;
 
-	typedef double	rScalar;
+	typedef double rScalar;
 
 	EIGEN_MAKE_TYPEDEFS(rScalar, d, 5, 5)
 	EIGEN_MAKE_TYPEDEFS(rScalar, d, 6, 6)
@@ -37,17 +35,17 @@ namespace Eigen
 
 	// typedef Transform<rScalar, 3, Eigen::Isometry> HTransform;  // typedef Transform< double, 3, Isometry > 	Eigen::Isometry3d
 
-	typedef Matrix<rScalar, 1, 3>	Matrix1x3d;
-	typedef Matrix<rScalar, 1, 4>	Matrix1x4d;
-	typedef Matrix<rScalar, 4, 3>	Matrix4x3d;
-	typedef Matrix<rScalar, 6, 3>	Matrix6x3d;
-	typedef Matrix<rScalar, 6, 7>	Matrix6x7d;
-	typedef Matrix<rScalar, 8, 4>	Matrix8x4d;
+	typedef Matrix<rScalar, 1, 3> Matrix1x3d;
+	typedef Matrix<rScalar, 1, 4> Matrix1x4d;
+	typedef Matrix<rScalar, 4, 3> Matrix4x3d;
+	typedef Matrix<rScalar, 6, 3> Matrix6x3d;
+	typedef Matrix<rScalar, 6, 7> Matrix6x7d;
+	typedef Matrix<rScalar, 8, 4> Matrix8x4d;
 	typedef Matrix<rScalar, -1, 1, 0, MAX_DOF, 1> VectorJXd;
-	typedef Matrix<rScalar, -1, 1, 0, 12, 1> VectorLXd; //Leg IK
+	typedef Matrix<rScalar, -1, 1, 0, 12, 1> VectorLXd; // Leg IK
 	typedef Matrix<rScalar, -1, -1, 0, MAX_DOF, MAX_DOF> MatrixJXd;
 
-	//Complex
+	// Complex
 	typedef Matrix<std::complex<double>, 8, 4> Matrix8x4cd;
 
 }
@@ -55,16 +53,16 @@ namespace Eigen
 namespace DyrosMath
 {
 
-	//constexpr double GRAVITY {9.80665};
-	//constexpr double DEG2RAD {};
+	// constexpr double GRAVITY {9.80665};
+	// constexpr double DEG2RAD {};
 
-	static double cubic(double time,     ///< Current time
-		double time_0,   ///< Start time
-		double time_f,   ///< End time
-		double x_0,      ///< Start state
-		double x_f,      ///< End state
-		double x_dot_0,  ///< Start state dot
-		double x_dot_f   ///< End state dot
+	static double cubic(double time,	///< Current time
+						double time_0,	///< Start time
+						double time_f,	///< End time
+						double x_0,		///< Start state
+						double x_f,		///< End state
+						double x_dot_0, ///< Start state dot
+						double x_dot_f	///< End state dot
 	)
 	{
 		double x_t;
@@ -87,26 +85,23 @@ namespace DyrosMath
 
 			x_t = x_0 + x_dot_0 * elapsed_time
 
-				+ (3 * total_x / total_time2
-					- 2 * x_dot_0 / total_time
-					- x_dot_f / total_time)
-				* elapsed_time * elapsed_time
+				  + (3 * total_x / total_time2 - 2 * x_dot_0 / total_time - x_dot_f / total_time) * elapsed_time * elapsed_time
 
-				+ (-2 * total_x / total_time3 +
-				(x_dot_0 + x_dot_f) / total_time2)
-				* elapsed_time * elapsed_time * elapsed_time;
+				  + (-2 * total_x / total_time3 +
+					 (x_dot_0 + x_dot_f) / total_time2) *
+						elapsed_time * elapsed_time * elapsed_time;
 		}
 
 		return x_t;
 	}
 
-	static double cubicDot(double time,     ///< Current time
-		double time_0,   ///< Start time
-		double time_f,   ///< End time
-		double x_0,      ///< Start state
-		double x_f,      ///< End state
-		double x_dot_0,  ///< Start state dot
-		double x_dot_f   ///< End state dot
+	static double cubicDot(double time,	   ///< Current time
+						   double time_0,  ///< Start time
+						   double time_f,  ///< End time
+						   double x_0,	   ///< Start state
+						   double x_f,	   ///< End state
+						   double x_dot_0, ///< Start state dot
+						   double x_dot_f  ///< End state dot
 	)
 	{
 		double x_t;
@@ -129,14 +124,9 @@ namespace DyrosMath
 
 			x_t = x_dot_0
 
-				+ 2 * (3 * total_x / total_time2
-					- 2 * x_dot_0 / total_time
-					- x_dot_f / total_time)
-				* elapsed_time
+				  + 2 * (3 * total_x / total_time2 - 2 * x_dot_0 / total_time - x_dot_f / total_time) * elapsed_time
 
-				+ 3 * (-2 * total_x / total_time3 +
-				(x_dot_0 + x_dot_f) / total_time2)
-				* elapsed_time * elapsed_time;
+				  + 3 * (-2 * total_x / total_time3 + (x_dot_0 + x_dot_f) / total_time2) * elapsed_time * elapsed_time;
 		}
 
 		return x_t;
@@ -157,18 +147,18 @@ namespace DyrosMath
 	}
 
 	template <int N>
-	static Eigen::Matrix<double, N, 1> cubicVector(double time,     ///< Current time
-		double time_0,   ///< Start time
-		double time_f,   ///< End time
-		Eigen::Matrix<double, N, 1> x_0,      ///< Start state
-		Eigen::Matrix<double, N, 1> x_f,      ///< End state
-		Eigen::Matrix<double, N, 1> x_dot_0,  ///< Start state dot
-		Eigen::Matrix<double, N, 1> x_dot_f   ///< End state dot
+	static Eigen::Matrix<double, N, 1> cubicVector(double time,							///< Current time
+												   double time_0,						///< Start time
+												   double time_f,						///< End time
+												   Eigen::Matrix<double, N, 1> x_0,		///< Start state
+												   Eigen::Matrix<double, N, 1> x_f,		///< End state
+												   Eigen::Matrix<double, N, 1> x_dot_0, ///< Start state dot
+												   Eigen::Matrix<double, N, 1> x_dot_f	///< End state dot
 	)
 	{
 
 		Eigen::Matrix<double, N, 1> res;
-		for (unsigned int i = 0; i<N; i++)
+		for (unsigned int i = 0; i < N; i++)
 		{
 			res(i) = cubic(time, time_0, time_f, x_0(i), x_f(i), x_dot_0(i), x_dot_f(i));
 		}
@@ -179,10 +169,10 @@ namespace DyrosMath
 	// Kang, I. G., and F. C. Park.
 	// "Cubic spline algorithms for orientation interpolation."
 	const static Eigen::Matrix3d rotationCubic(double time,
-		double time_0,
-		double time_f,
-		const Eigen::Matrix3d &rotation_0,
-		const Eigen::Matrix3d &rotation_f)
+											   double time_0,
+											   double time_f,
+											   const Eigen::Matrix3d &rotation_0,
+											   const Eigen::Matrix3d &rotation_f)
 	{
 		if (time >= time_f)
 		{
@@ -221,34 +211,64 @@ namespace DyrosMath
 			rd(i) = cubicDot(time, time_0, time_f, 0, r(i), 0, 0);
 		}
 		rd = rotation_0 * rd;
-		if (tau < 0) return w_0;
-		if (tau > 1) return Eigen::Vector3d::Zero();
-		return rd;//3 * a * pow(tau, 2) + 2 * b * tau + c;
+		if (tau < 0)
+			return w_0;
+		if (tau > 1)
+			return Eigen::Vector3d::Zero();
+		return rd; // 3 * a * pow(tau, 2) + 2 * b * tau + c;
+	}
+	const static Eigen::Vector3d rotationCubicDot(double time,
+												  double time_0,
+												  double time_f,
+												  const Eigen::Matrix3d &rotation_0, const Eigen::Matrix3d &rotation_f)
+	{
+		Eigen::Vector3d result;
+		result << 0, 0, 0;
+
+		if (time >= time_f)
+		{
+			return result;
+		}
+		else if (time < time_0)
+		{
+			return result;
+		}
+
+		Eigen::Matrix3d rotation_d = rotation_f * rotation_0.transpose();
+		double theta = acos((rotation_d(0, 0) + rotation_d(1, 1) + rotation_d(2, 2) - 1) / 2);
+		double theta_dot = cubicDot(time, time_0, time_f, 0, theta, 0, 0);
+		Eigen::Vector3d w;
+		w << 1 / (2 * sin(theta)) * (rotation_d(2, 1) - rotation_d(1, 2)), 1 / (2 * sin(theta)) * (rotation_d(0, 2) - rotation_d(2, 0)), 1 / (2 * sin(theta)) * (rotation_d(1, 0) - rotation_d(0, 1));
+
+		result = theta_dot * w;
+
+		return result;
 	}
 	static Eigen::Vector3d getPhi(Eigen::Matrix3d current_rotation,
-		Eigen::Matrix3d desired_rotation)
+								  Eigen::Matrix3d desired_rotation)
 	{
 		Eigen::Vector3d phi;
 		Eigen::Vector3d s[3], v[3], w[3];
 
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 3; i++)
+		{
 			v[i] = current_rotation.block<3, 1>(0, i);
 			w[i] = desired_rotation.block<3, 1>(0, i);
 			s[i] = v[i].cross(w[i]);
 		}
 		phi = s[0] + s[1] + s[2];
-		phi = -0.5* phi;
+		phi = -0.5 * phi;
 
 		return phi;
 	}
 
 	static Eigen::Isometry3d multiplyIsometry3d(Eigen::Isometry3d A,
-		Eigen::Isometry3d B)
+												Eigen::Isometry3d B)
 	{
 		Eigen::Isometry3d AB;
 
-		AB.linear() = A.linear()*B.linear();
-		AB.translation() = A.linear()*B.translation() + A.translation();
+		AB.linear() = A.linear() * B.linear();
+		AB.translation() = A.linear() * B.translation() + A.translation();
 		return AB;
 	}
 
@@ -257,7 +277,7 @@ namespace DyrosMath
 		Eigen::Isometry3d A_inv;
 
 		A_inv.linear() = A.linear().transpose();
-		A_inv.translation() = -A.linear().transpose()*A.translation();
+		A_inv.translation() = -A.linear().transpose() * A.translation();
 		return A_inv;
 	}
 
@@ -329,9 +349,9 @@ namespace DyrosMath
 		else
 			beta = 180 * DEG2RAD - beta;
 
-		angle(0) = atan2(Rot(2, 1), Rot(2, 2) + 1E-37); //roll
-		angle(2) = atan2(Rot(1, 0), Rot(0, 0) + 1E-37); //pitch
-		angle(1) = beta; //yaw
+		angle(0) = atan2(Rot(2, 1), Rot(2, 2) + 1E-37); // roll
+		angle(2) = atan2(Rot(1, 0), Rot(0, 0) + 1E-37); // pitch
+		angle(1) = beta;								// yaw
 
 		return angle;
 	}
@@ -339,12 +359,11 @@ namespace DyrosMath
 	template <typename _Matrix_Type_>
 	static _Matrix_Type_ pseudoInverse(const _Matrix_Type_ &a, double epsilon = std::numeric_limits<double>::epsilon())
 	{
-		Eigen::JacobiSVD< _Matrix_Type_ > svd(a, Eigen::ComputeThinU | Eigen::ComputeThinV);
-		double tolerance = epsilon * std::max(a.cols(), a.rows()) *svd.singularValues().array().abs()(0);
+		Eigen::JacobiSVD<_Matrix_Type_> svd(a, Eigen::ComputeThinU | Eigen::ComputeThinV);
+		double tolerance = epsilon * std::max(a.cols(), a.rows()) * svd.singularValues().array().abs()(0);
 
-		return svd.matrixV() *  (svd.singularValues().array().abs() > tolerance).select(svd.singularValues().array().inverse(), 0).matrix().asDiagonal() * svd.matrixU().adjoint();
+		return svd.matrixV() * (svd.singularValues().array().abs() > tolerance).select(svd.singularValues().array().inverse(), 0).matrix().asDiagonal() * svd.matrixU().adjoint();
 	}
-
 
 	static void floatGyroframe(Eigen::Isometry3d trunk, Eigen::Isometry3d reference, Eigen::Isometry3d new_trunk)
 	{
@@ -358,7 +377,6 @@ namespace DyrosMath
 		new_trunk.translation() = temp * (trunk.translation() - reference.translation());
 	}
 
-
 	template <int _State_Size_, int _Input_Size_>
 	Eigen::Matrix<double, _State_Size_, _State_Size_> discreteRiccatiEquation(
 		Eigen::Matrix<double, _State_Size_, _State_Size_> a,
@@ -368,9 +386,9 @@ namespace DyrosMath
 	{
 		Eigen::Matrix4d z11, z12, z21, z22;
 		z11 = a.inverse();
-		z12 = a.inverse()*b*r.inverse()*b.transpose();
+		z12 = a.inverse() * b * r.inverse() * b.transpose();
 		z21 = q * a.inverse();
-		z22 = a.transpose() + q * a.inverse()*b*r.inverse()*b.transpose();
+		z22 = a.transpose() + q * a.inverse() * b * r.inverse() * b.transpose();
 
 		Eigen::Matrix<double, 2 * _State_Size_, 2 * _State_Size_> z;
 		z.setZero();
@@ -384,7 +402,7 @@ namespace DyrosMath
 		std::vector<Eigen::Vector8d> eigVec_real(8);
 		std::vector<Eigen::Vector8d> eigVec_img(8);
 
-		for (int i = 0; i<8; i++)
+		for (int i = 0; i < 8; i++)
 		{
 			eigVec_real[i].setZero();
 			eigVec_img[i].setZero();
@@ -400,33 +418,33 @@ namespace DyrosMath
 		deigVal_img = z.eigenvalues().imag();
 
 		Eigen::EigenSolver<Eigen::Matrix<double, 2 * _State_Size_, 2 * _State_Size_>> ev(z);
-		//EigenVector Solver
-		//Matrix3D ones = Matrix3D::Ones(3,3);
-		//EigenSolver<Matrix3D> ev(ones);
-		//cout << "The first eigenvector of the 3x3 matrix of ones is:" << endl << ev.eigenvectors().col(1) << endl;
+		// EigenVector Solver
+		// Matrix3D ones = Matrix3D::Ones(3,3);
+		// EigenSolver<Matrix3D> ev(ones);
+		// cout << "The first eigenvector of the 3x3 matrix of ones is:" << endl << ev.eigenvectors().col(1) << endl;
 
-		for (int i = 0; i<8; i++)
+		for (int i = 0; i < 8; i++)
 		{
-			for (int j = 0; j<8; j++)
+			for (int j = 0; j < 8; j++)
 			{
 				deigVec_real(j, i) = ev.eigenvectors().col(i)(j).real();
 				deigVec_img(j, i) = ev.eigenvectors().col(i)(j).imag();
 			}
 		}
 
-		//Order the eigenvectors
-		//move e-vectors correspnding to e-value outside the unite circle to the left
+		// Order the eigenvectors
+		// move e-vectors correspnding to e-value outside the unite circle to the left
 
 		Eigen::Matrix8x4d tempZ_real, tempZ_img;
 		tempZ_real.setZero();
 		tempZ_img.setZero();
 		int c = 0;
 
-		for (int i = 0; i<8; i++)
+		for (int i = 0; i < 8; i++)
 		{
-			if ((deigVal_real(i)*deigVal_real(i) + deigVal_img(i)*deigVal_img(i))>1.0) //outside the unit cycle
+			if ((deigVal_real(i) * deigVal_real(i) + deigVal_img(i) * deigVal_img(i)) > 1.0) // outside the unit cycle
 			{
-				for (int j = 0; j<8; j++)
+				for (int j = 0; j < 8; j++)
 				{
 					tempZ_real(j, c) = deigVec_real(j, i);
 					tempZ_img(j, c) = deigVec_img(j, i);
@@ -436,9 +454,9 @@ namespace DyrosMath
 		}
 
 		Eigen::Matrix8x4cd tempZ_comp;
-		for (int i = 0; i<8; i++)
+		for (int i = 0; i < 8; i++)
 		{
-			for (int j = 0; j<4; j++)
+			for (int j = 0; j < 4; j++)
 			{
 				tempZ_comp.real()(i, j) = tempZ_real(i, j);
 				tempZ_comp.imag()(i, j) = tempZ_img(i, j);
@@ -446,9 +464,9 @@ namespace DyrosMath
 		}
 
 		Eigen::Matrix4cd U11, U21, X;
-		for (int i = 0; i<4; i++)
+		for (int i = 0; i < 4; i++)
 		{
-			for (int j = 0; j<4; j++)
+			for (int j = 0; j < 4; j++)
 			{
 				U11(i, j) = tempZ_comp(i, j);
 				U21(i, j) = tempZ_comp(i + 4, j);
@@ -456,9 +474,9 @@ namespace DyrosMath
 		}
 		X = U21 * (U11.inverse());
 		Eigen::Matrix4d X_sol;
-		for (int i = 0; i<4; i++)
+		for (int i = 0; i < 4; i++)
 		{
-			for (int j = 0; j<4; j++)
+			for (int j = 0; j < 4; j++)
 			{
 				X_sol(i, j) = X.real()(i, j);
 			}
@@ -483,7 +501,7 @@ namespace DyrosMath
 		x_rot = rotateWithX(ctrl_pos_ori(3));
 		y_rot = rotateWithY(ctrl_pos_ori(4));
 		z_rot = rotateWithZ(ctrl_pos_ori(5));
-		d_rot = active_r.inverse()*z_rot*y_rot*x_rot;
+		d_rot = active_r.inverse() * z_rot * y_rot * x_rot;
 
 		rotation_matrix = active_r.inverse() * rotation_matrix1.linear();
 

@@ -17,7 +17,8 @@ int main(int argc, char **argv)
     ros::NodeHandle nh; // 
     DataContainer dc;
 
-    int control_mode = TorqueControl;
+    // int control_mode = TorqueControl;
+    int control_mode = PositionControl;
 
     MujocoInterface mujoco_interface(nh, dc);   // Class 정의
     HuskyController husky_controller(nh, dc, control_mode);
