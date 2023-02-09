@@ -2,6 +2,8 @@
 
 using namespace Eigen;
 
+std::ofstream fout("/home/kwan/data/FT.txt");
+
 HuskyController::HuskyController(ros::NodeHandle &nh, DataContainer &dc, int control_mode) : dc_(dc)
 {
     if (control_mode == 0)
@@ -115,6 +117,19 @@ void HuskyController::compute()
                 input_vel.setZero();
                 wheel_vel.resize(4);
                 wheel_vel.setZero();
+                wheel_vel_measured_.resize(4);
+                wheel_vel_measured_.setZero();
+
+
+                // End_effector
+                ee_.setZero();
+                ee_contact_ = 0.0;
+                
+                // sensor
+                force_sensor_.setZero();
+                torque_sensor_.setZero();
+                velocity_sensor_.setZero();
+                position_sensor_.setZero();
 
                 init_time_ = ros::Time::now().toSec(); // 초 단위로 시간을 반환.
 
@@ -134,12 +149,20 @@ void HuskyController::compute()
                     q_dot_(i) = dc_.q_dot_(i + WHEEL_DOF + VIRTUAL_DOF);
                     effort_(i) = dc_.effort_(i + WHEEL_DOF + VIRTUAL_DOF);
                 }
+                ee_contact_ = dc_.contact_;
+                force_sensor_ = dc_.force_;
+                torque_sensor_ = dc_.torque_;
+                velocity_sensor_.head(3) = dc_.lin_vel_;
+                velocity_sensor_.tail(3) = dc_.ang_vel_;
+                position_sensor_ = dc_.pos_;
+
+                wheel_vel_measured_ = dc_.q_dot_.segment(VIRTUAL_DOF, WHEEL_DOF);
+
                 m_dc_.unlock();
 
                 updateKinematicsDynamics();
 
                 computeControlInput();
-
                 printData();
                 pre_time_ = cur_time_;
             }
@@ -155,6 +178,8 @@ void HuskyController::compute()
                 q_dot_mode_init_ = q_dot_;
                 x_mode_init_ = x_;
                 q_desired_ = q_;
+
+                is_read_ = true;
 
                 std::cout << "Mode changed to";
                 // i: 105, r: 114, m: 109, s: 115, f:102, h: 104
@@ -172,6 +197,12 @@ void HuskyController::compute()
                     break;
                 case (MODE_NULL):
                     std::cout << " NULL control" << std::endl;
+                    break;
+                case (113):
+                    std::cout << " Gripper open" << std::endl;
+                    break;
+                case (119):
+                    std::cout << " Gripper close" << std::endl;
                     break;
                 case (MODE_STOP):
                     std::cout << " Stop Pose" << std::endl;
@@ -254,30 +285,44 @@ void HuskyController::computeControlInput()
 
         Eigen::Matrix3d target_rotation;
         target_rotation << 0.707, -0.707, 0.0,
-            -0.707, -0.707, 0.0,
-            0.0, 0.0, -1.0;
+                           -0.707, -0.707, 0.0,
+                           0.0, 0.0, -1.0;
 
-        input_vel << 0.0, 0.0;
+        input_vel << 0.0,0;
 
         // CLIK(target_position, target_rotation, 5.0);
 
         CLIK_traj();
 
         moveHuskyPositionVelocity(input_vel);
-        moveEndEffector(true);
+        saveData();
     }
     else if (mode_ == MODE_NULL)
     {
+    }
+    else if (mode_ == MODE_MOVE)
+    {
+        Husky_traj();
+    }
+    else if (mode_ == 113)
+    {
+        moveEndEffector(false);
+    }
+    else if (mode_ == 119)
+    {
+        moveEndEffector(true);
     }
     else if (mode_ == MODE_STOP)
     {
         torque_desired_ = g_;
         wheel_vel.setZero();
+        ee_.setZero();
     }
     else
     {
         torque_desired_ = g_;
         wheel_vel.setZero();
+        ee_.setZero();
     }
 
     dc_.control_input_.setZero();
@@ -412,18 +457,18 @@ void HuskyController::CLIK_traj()
 
     if (is_read_ == true)
     {
-        tick_limit_ = ReadTextFile(x_traj_, z_traj_, xdot_traj_, zdot_traj_);
+        tick_limit_ = ReadTextFilePanda(panda_x_traj_, panda_z_traj_, panda_xdot_traj_, panda_zdot_traj_);
 
         is_read_ = false;
     }
 
     x_desired_.translation()(0) = x_mode_init_.translation()(0);
-    x_desired_.translation()(1) = x_mode_init_.translation()(1) + x_traj_(traj_tick_) / 3;
-    x_desired_.translation()(2) = x_mode_init_.translation()(2) + z_traj_(traj_tick_) / 3;
+    x_desired_.translation()(1) = x_mode_init_.translation()(1) + panda_x_traj_(traj_tick_);
+    x_desired_.translation()(2) = x_mode_init_.translation()(2) + panda_z_traj_(traj_tick_);
 
     xd_desired(0) = 0.0;
-    xd_desired(1) = xdot_traj_(traj_tick_);
-    xd_desired(2) = zdot_traj_(traj_tick_);
+    xd_desired(1) = panda_xdot_traj_(traj_tick_);
+    xd_desired(2) = panda_zdot_traj_(traj_tick_);
 
     x_desired_.linear() = x_mode_init_.linear();
     xd_desired.tail(3).setZero();
@@ -455,7 +500,7 @@ void HuskyController::CLIK_traj()
 
         q_desired_ = q_desired_ + qd_desired / hz_;
 
-        if (x_error.norm() < 0.01 || num > 10)
+        if (x_error.norm() < 0.001 || num > 10)
             break;
 
         num++;
@@ -466,9 +511,46 @@ void HuskyController::CLIK_traj()
         traj_tick_ = 0;
 }
 
-unsigned int HuskyController::ReadTextFile(Eigen::VectorXd &x_traj, Eigen::VectorXd &z_traj, Eigen::VectorXd &xdot_traj, Eigen::VectorXd &zdot_traj)
+void HuskyController::Husky_traj()
 {
-    std::string textfile_location = "/home/kwan/catkin_ws/src/husky_controller/traj.txt";
+    Vector6d xd_desired, x_error;
+    if (is_read_ == true)
+    {
+        tick_limit_ = ReadTextFileHusky(husky_x_traj_, husky_y_traj_, husky_xdot_traj_, husky_ydot_traj_, husky_xddot_traj_, husky_yddot_traj_);
+
+        is_read_ = false;
+    }
+
+    double v, w;
+
+    v = sqrt(husky_xdot_traj_(traj_tick_)*husky_xdot_traj_(traj_tick_) + husky_ydot_traj_(traj_tick_)*husky_ydot_traj_(traj_tick_));
+    
+    if(v==0)
+        w = 0;
+    else
+        w = (husky_xdot_traj_(traj_tick_) * husky_yddot_traj_(traj_tick_) - husky_ydot_traj_(traj_tick_) * husky_xddot_traj_(traj_tick_)) / (v * v);
+
+    v = 0.25; w = 0.125;
+    Eigen::Vector2d Husky_vel;
+    Husky_vel.setZero();
+    Husky_vel << v, w;
+
+    std::cout << "Husky_vel: " << Husky_vel.transpose() << std::endl;
+
+    moveHuskyPositionVelocity(Husky_vel);
+
+    theta_prev_ = theta_;
+
+    traj_tick_++;
+    if (traj_tick_ == tick_limit_)
+        traj_tick_ = 0; 
+}
+
+unsigned int HuskyController::ReadTextFilePanda(Eigen::VectorXd &x_traj, Eigen::VectorXd &y_traj, Eigen::VectorXd &xdot_traj, Eigen::VectorXd &ydot_traj)
+{
+    // std::string textfile_location = "/home/kwan/catkin_ws/src/husky_controller/panda_traj/circle.txt";
+    std::string textfile_location = "/home/kwan/catkin_ws/src/husky_controller/panda_traj/eight.txt";
+    // std::string textfile_location = "/home/kwan/catkin_ws/src/husky_controller/panda_traj/square.txt";
 
     FILE *traj_file = NULL;
     traj_file = fopen(textfile_location.c_str(), "r");
@@ -509,20 +591,90 @@ unsigned int HuskyController::ReadTextFile(Eigen::VectorXd &x_traj, Eigen::Vecto
     }
 
     x_traj.resize(traj_length + 1);
-    z_traj.resize(traj_length + 1);
+    y_traj.resize(traj_length + 1);
     xdot_traj.resize(traj_length + 1);
-    zdot_traj.resize(traj_length + 1);
+    ydot_traj.resize(traj_length + 1);
 
     for (int i = 0; i < traj_length + 1; i++)
     {
         x_traj(i) = ref_position_x[i];
-        z_traj(i) = ref_position_y[i];
+        y_traj(i) = ref_position_y[i];
         xdot_traj(i) = ref_position_xdot_[i];
-        zdot_traj(i) = ref_position_ydot_[i];
+        ydot_traj(i) = ref_position_ydot_[i];
     }
 
-    std::cout << "ref_position_x[] " << ref_position_x[31132] << std::endl;
-    std::cout << "x_traj_(traj_tick_) " << x_traj_(31132) << std::endl;
+    fclose(traj_file);
+
+    return (traj_length + 1);
+}
+
+unsigned int HuskyController::ReadTextFileHusky(Eigen::VectorXd &x_traj, Eigen::VectorXd &y_traj, Eigen::VectorXd &xdot_traj, Eigen::VectorXd &ydot_traj, Eigen::VectorXd &xddot_traj, Eigen::VectorXd &yddot_traj)
+{
+    // std::string textfile_location = "/home/kwan/catkin_ws/src/husky_controller/husky_traj/circle.txt";
+    // std::string textfile_location = "/home/kwan/catkin_ws/src/husky_controller/husky_traj/eight.txt";
+    std::string textfile_location = "/home/kwan/catkin_ws/src/husky_controller/husky_traj/square.txt";
+
+    FILE *traj_file = NULL;
+    traj_file = fopen(textfile_location.c_str(), "r");
+    int traj_length = 0;
+    char tmp;
+
+    if (traj_file == NULL)
+    {
+        printf("There is no txt file. Please edit code. ");
+        return 0;
+    }
+
+    while (fscanf(traj_file, "%c", &tmp) != EOF)
+    {
+        if (tmp == '\n')
+            traj_length++;
+    }
+
+    if(traj_length > 100000)
+        traj_length = 100000;
+
+    fseek(traj_file, 0L, SEEK_SET);
+    traj_length -= 1;
+
+    std::cout << traj_length << std::endl;
+
+    double time[traj_length + 1],
+        ref_position_x[traj_length + 1],
+        ref_position_y[traj_length + 1],
+        ref_position_xdot_[traj_length + 1],
+        ref_position_ydot_[traj_length + 1],
+        ref_position_xddot_[traj_length + 1],
+        ref_position_yddot_[traj_length + 1];
+
+    for (int i = 0; i < traj_length + 1; i++)
+    {
+        fscanf(traj_file, "%lf %lf %lf %lf %lf %lf %lf \n",
+               &time[i],
+               &ref_position_x[i],
+               &ref_position_y[i],
+               &ref_position_xdot_[i],
+               &ref_position_ydot_[i],
+               &ref_position_xddot_[i],
+               &ref_position_yddot_[i]);
+    }
+
+    x_traj.resize(traj_length + 1);
+    y_traj.resize(traj_length + 1);
+    xdot_traj.resize(traj_length + 1);
+    ydot_traj.resize(traj_length + 1);
+    xddot_traj.resize(traj_length + 1);
+    yddot_traj.resize(traj_length + 1);
+
+    for (int i = 0; i < traj_length + 1; i++)
+    {
+        x_traj(i) = ref_position_x[i];
+        y_traj(i) = ref_position_y[i];
+        xdot_traj(i) = ref_position_xdot_[i];
+        ydot_traj(i) = ref_position_ydot_[i];
+        xddot_traj(i) = ref_position_xddot_[i];
+        yddot_traj(i) = ref_position_yddot_[i];
+    }
 
     fclose(traj_file);
 
@@ -535,7 +687,7 @@ void HuskyController::moveHuskyPositionVelocity(Eigen::Vector2d input_velocity)
     double V = input_velocity(0);
     double w = input_velocity(1);
 
-    double b = 0.28545;
+    double b = 2 * 0.28545 * 1.875;
     double r = 0.1651;
 
     double wL = (V - w * b / 2) / r;
@@ -545,28 +697,41 @@ void HuskyController::moveHuskyPositionVelocity(Eigen::Vector2d input_velocity)
     wheel_vel(2) = wL;
     wheel_vel(1) = wR;
     wheel_vel(3) = wR;
+
+    saveData();
+    // std::cout << "left wheel vel: " << wL << " right wheel vel" << wR << std::endl;
+    // std::cout << "wheel_vel_measured_ : " << wheel_vel_measured_.transpose() << std::endl;
 }
 
-void HuskyController::moveEndEffector(bool mode)
+void HuskyController::moveEndEffector(bool is_grip)
 {
-    if (mode == false)
-        ee_ << 3.0, 3.0;
-    else if (mode == true)
-        ee_ << -10.0, -10.0;
+    if (is_grip == false)
+        ee_ << 5.0, 5.0;
+    else if (is_grip == true)   // grasp
+        ee_ << 0.0, 0.0;
 }
 
 void HuskyController::printData()
 {
-    // std::cout << "xpos: " << x_.translation().transpose() << "\n"
+
+    std::cout << "lin_vel_: " << sqrt(velocity_sensor_(0)*velocity_sensor_(0) + velocity_sensor_(1)*velocity_sensor_(1))
+         << std::endl;
+    std::cout << "ang_vel_: " << velocity_sensor_(5) << "\n"
+         << std::endl;
+
+    // std::cout << cur_time_ << "\t" << force_sensor_.transpose() << "\t" << torque_sensor_.transpose() << "\t" << ee_contact_ << "\n"
     //           << std::endl;
-    // std::cout << "xdes: " << x_.linear() << "\n"
-    //           << std::endl;
-    // std::cout << "rot_init: " << x_mode_init_.linear() << "\n"
-    //           << std::endl;
-    // std::cout << "qpos: " << q_.transpose() << "\n"
-    //           << std::endl;
-    // std::cout << "qdes: " << q_desired_.transpose() << "\n"
-    //           << std::endl;
+}
+
+void HuskyController::saveData()
+{
+    fout << cur_time_ << "\t" << force_sensor_.transpose() << "\t" << torque_sensor_.transpose() << "\t" << ee_contact_ << "\n"
+         << std::endl;
+
+    // fout << position_sensor_.transpose() << "\t"
+    //      << sqrt(velocity_sensor_(0)*velocity_sensor_(0) + velocity_sensor_(1)*velocity_sensor_(1)) << "\t"
+    //      << velocity_sensor_(5)
+    //      << std::endl;
 }
 
 Eigen::MatrixXd HuskyController::JacobianUpdate(Eigen::Vector7d qd_)

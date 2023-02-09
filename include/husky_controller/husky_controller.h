@@ -20,16 +20,17 @@
 #include <rbdl/addons/urdfreader/urdfreader.h>
 
 #include "math_type_define.h"
-
+#include <iostream>
 #include <fstream>
 
 #include <std_msgs/Float32MultiArray.h>
 
-# define MODE_INIT 105
-# define MODE_HOME 104
-# define MODE_CLIK 99 
-# define MODE_STOP 115
-# define MODE_NULL 110
+#define MODE_INIT 105
+#define MODE_HOME 104
+#define MODE_CLIK 99 
+#define MODE_STOP 115
+#define MODE_NULL 110
+#define MODE_MOVE 109
 
 #define WHEEL_DOF 4
 #define PANDA_DOF 7
@@ -48,12 +49,15 @@ class HuskyController
         void moveJointPositionTorque(Eigen::Vector7d target_position, double duration);
         void CLIK(Eigen::Vector3d target_position, Eigen::Matrix3d target_rotation, double duration);
         void CLIK_traj();
-        unsigned int ReadTextFile(Eigen::VectorXd &x_traj, Eigen::VectorXd &z_traj, Eigen::VectorXd &xdot_traj, Eigen::VectorXd &zdot_traj);
+        void Husky_traj();
         Eigen::MatrixXd JacobianUpdate(Eigen::Vector7d qd_);
         Eigen::Isometry3d PositionUpdate(Eigen::Vector7d qd_);
-
+        unsigned int ReadTextFilePanda(Eigen::VectorXd &x_traj, Eigen::VectorXd &y_traj, Eigen::VectorXd &xdot_traj, Eigen::VectorXd &ydot_traj);
+        unsigned int ReadTextFileHusky(Eigen::VectorXd &x_traj, Eigen::VectorXd &y_traj, Eigen::VectorXd &xdot_traj, Eigen::VectorXd &ydot_traj, Eigen::VectorXd &xddot_traj, Eigen::VectorXd &yddot_traj);
+        
         void moveHuskyPositionVelocity(Eigen::Vector2d input_velocity);
-        void moveEndEffector(bool mode);
+        void moveEndEffector(bool is_grip);
+        void saveData();
         void printData();
     
     private:
@@ -64,7 +68,8 @@ class HuskyController
 
         unsigned int traj_tick_ = 0;
         unsigned int tick_limit_;
-        Eigen::VectorXd x_traj_, z_traj_, xdot_traj_, zdot_traj_;
+        Eigen::VectorXd panda_x_traj_, panda_z_traj_, panda_xdot_traj_, panda_zdot_traj_;
+        Eigen::VectorXd husky_x_traj_, husky_y_traj_, husky_xdot_traj_, husky_ydot_traj_, husky_xddot_traj_, husky_yddot_traj_;
 
         int mode_ = 0;
         double mode_init_time_ =  0.0;
@@ -82,8 +87,12 @@ class HuskyController
 
         bool is_init_ = true;
         bool is_read_ = true;
-
+        bool is_save_ = false;
+        
         double sim_time_ = 0.0;
+
+        double theta_ = 0.0;
+        double theta_prev_ = 0.0;
 
         // Robot State
         Eigen::Vector7d q_;
@@ -132,9 +141,17 @@ class HuskyController
         // Mobile robot
         Eigen::VectorXd input_vel;
         Eigen::VectorXd wheel_vel;
+        Eigen::VectorXd wheel_vel_measured_;
 
         Eigen::Vector2d ee_;
-   
+
+        // End_effector contact force
+        double ee_contact_;
+
+        Eigen::Vector3d force_sensor_;
+        Eigen::Vector3d torque_sensor_;   
+        Eigen::Vector6d velocity_sensor_;   
+        Eigen::Vector3d position_sensor_;   
 };
 
 // ##### keyboard ##### //

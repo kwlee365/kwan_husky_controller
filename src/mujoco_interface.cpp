@@ -72,8 +72,31 @@ void MujocoInterface::simStatusCallback(const mujoco_ros_msgs::SimStatusConstPtr
             if (msg->sensor[i].name == "Force_sensor")
             {
                 for (int j = 0; j < 3; j++)
-
                     dc_.force_[j] = msg->sensor[i].data[j];
+            }
+            if (msg->sensor[i].name == "Torque_sensor")
+            {
+                for (int j = 0; j < 3; j++)
+                    dc_.torque_[j] = msg->sensor[i].data[j];
+            }
+            if (msg->sensor[i].name == "Contact_sensor")
+            {
+                dc_.contact_ = msg->sensor[i].data[0];
+            }
+            if (msg->sensor[i].name == "position_sensor")
+            {
+                for (int j = 0; j < 3; j++)
+                    dc_.pos_[j] = msg->sensor[i].data[j];
+            }
+            if (msg->sensor[i].name == "linear_velocity_sensor")
+            {
+                for (int j = 0; j < 3; j++)
+                    dc_.lin_vel_[j] = msg->sensor[i].data[j];
+            }
+            if (msg->sensor[i].name == "angular_velocity_sensor")
+            {
+                for (int j = 0; j < 3; j++)
+                    dc_.ang_vel_[j] = msg->sensor[i].data[j];
             }
         }
 
