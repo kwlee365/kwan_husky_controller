@@ -2,10 +2,16 @@
 
 using namespace Eigen;
 
-std::ofstream fout("/home/kwan/data/FT.txt");
+// std::ofstream fout("/home/kwan/data/FT_circle.txt");
+// std::ofstream fout("/home/kwan/data/FT_square.txt");
+std::ofstream fout("/home/kwan/data/FT_eight.txt");
+// std::ofstream fout("/home/kwan/data/circle_cylinder.txt");
+// std::ofstream fout("/home/kwan/data/circle_sphere.txt");
 
 HuskyController::HuskyController(ros::NodeHandle &nh, DataContainer &dc, int control_mode) : dc_(dc)
 {
+    hz_ = dc_.hz_;
+
     if (control_mode == 0)
         dc_.sim_mode_ = "position";
     else if (control_mode == 1)
@@ -195,8 +201,8 @@ void HuskyController::compute()
                 case (MODE_CLIK):
                     std::cout << " CLIK control" << std::endl;
                     break;
-                case (MODE_NULL):
-                    std::cout << " NULL control" << std::endl;
+                case (MODE_MOVE):
+                    std::cout << " Move husky" << std::endl;
                     break;
                 case (113):
                     std::cout << " Gripper open" << std::endl;
@@ -211,7 +217,7 @@ void HuskyController::compute()
             }
 
             ros::spinOnce();
-            // r.sleep();
+            r.sleep();
         }
     }
     close_keyboard();
@@ -272,11 +278,20 @@ void HuskyController::computeControlInput()
     }
     else if (mode_ == MODE_HOME)
     {
-        q_target_ << 0.0, 0.0, 0.0, -90 * DEG2RAD, 0.0, 90 * DEG2RAD, 45 * DEG2RAD;
-        input_vel << 0.2, 0.0;
+        // q_target_ << 0.0, 0.00374959, 0.0, 0.00346764, 0.0, -0.0120559, 0.0;
+        input_vel << 0.0, 0.0;
 
-        moveJointPositionTorque(q_target_, 5.0);
+        // moveJointPosition(q_target_, 10.0);
         moveHuskyPositionVelocity(input_vel);
+
+        Eigen::Vector3d target_position;
+        target_position = x_mode_init_.translation();
+        target_position(2) += 0.1;
+
+        Eigen::Matrix3d target_rotation;
+        target_rotation << x_mode_init_.linear();
+
+        CLIK(target_position, target_rotation, 5.0);
     }
     else if (mode_ == MODE_CLIK)
     {
@@ -288,27 +303,27 @@ void HuskyController::computeControlInput()
                            -0.707, -0.707, 0.0,
                            0.0, 0.0, -1.0;
 
-        input_vel << 0.0,0;
+        input_vel << 0.0, 0.0;
 
         // CLIK(target_position, target_rotation, 5.0);
-
+        saveData();
         CLIK_traj();
 
         moveHuskyPositionVelocity(input_vel);
-        saveData();
     }
     else if (mode_ == MODE_NULL)
     {
     }
     else if (mode_ == MODE_MOVE)
     {
+        saveData();
         Husky_traj();
     }
-    else if (mode_ == 113)
+    else if (mode_ == 113) // q
     {
         moveEndEffector(false);
     }
-    else if (mode_ == 119)
+    else if (mode_ == 119) // w
     {
         moveEndEffector(true);
     }
@@ -441,14 +456,14 @@ void HuskyController::CLIK(Eigen::Vector3d target_position, Eigen::Matrix3d targ
         num++;
     }
 
-    std::cout << "xpos: " << x_.translation().transpose() << "\n"
-              << std::endl;
-    std::cout << "rotpos: " << x_.linear() << "\n"
-              << std::endl;
-    std::cout << "xdes: " << x_desired_.translation().transpose() << "\n"
-              << std::endl;
-    std::cout << "rot_des: " << x_desired_.linear() << "\n"
-              << std::endl;
+    // std::cout << "xpos: " << x_.translation().transpose() << "\n"
+    //           << std::endl;
+    // std::cout << "rotpos: " << x_.linear() << "\n"
+    //           << std::endl;
+    // std::cout << "xdes: " << x_desired_.translation().transpose() << "\n"
+    //           << std::endl;
+    // std::cout << "rot_des: " << x_desired_.linear() << "\n"
+    //           << std::endl;
 }
 
 void HuskyController::CLIK_traj()
@@ -508,7 +523,10 @@ void HuskyController::CLIK_traj()
 
     traj_tick_++;
     if (traj_tick_ == tick_limit_)
+    {
         traj_tick_ = 0;
+        is_save_ = false;
+    }
 }
 
 void HuskyController::Husky_traj()
@@ -530,20 +548,21 @@ void HuskyController::Husky_traj()
     else
         w = (husky_xdot_traj_(traj_tick_) * husky_yddot_traj_(traj_tick_) - husky_ydot_traj_(traj_tick_) * husky_xddot_traj_(traj_tick_)) / (v * v);
 
-    v = 0.25; w = 0.125;
+    v = 0.25;
+    w = 0.125;
     Eigen::Vector2d Husky_vel;
     Husky_vel.setZero();
     Husky_vel << v, w;
 
-    std::cout << "Husky_vel: " << Husky_vel.transpose() << std::endl;
-
     moveHuskyPositionVelocity(Husky_vel);
-
-    theta_prev_ = theta_;
+    std::cout << "v_des: " << Husky_vel.transpose() << std::endl;
 
     traj_tick_++;
     if (traj_tick_ == tick_limit_)
-        traj_tick_ = 0; 
+    {
+        traj_tick_ = 0;
+        is_save_ = false;
+    }
 }
 
 unsigned int HuskyController::ReadTextFilePanda(Eigen::VectorXd &x_traj, Eigen::VectorXd &y_traj, Eigen::VectorXd &xdot_traj, Eigen::VectorXd &ydot_traj)
@@ -610,9 +629,9 @@ unsigned int HuskyController::ReadTextFilePanda(Eigen::VectorXd &x_traj, Eigen::
 
 unsigned int HuskyController::ReadTextFileHusky(Eigen::VectorXd &x_traj, Eigen::VectorXd &y_traj, Eigen::VectorXd &xdot_traj, Eigen::VectorXd &ydot_traj, Eigen::VectorXd &xddot_traj, Eigen::VectorXd &yddot_traj)
 {
-    // std::string textfile_location = "/home/kwan/catkin_ws/src/husky_controller/husky_traj/circle.txt";
+    std::string textfile_location = "/home/kwan/catkin_ws/src/husky_controller/husky_traj/circle.txt";
     // std::string textfile_location = "/home/kwan/catkin_ws/src/husky_controller/husky_traj/eight.txt";
-    std::string textfile_location = "/home/kwan/catkin_ws/src/husky_controller/husky_traj/square.txt";
+    // std::string textfile_location = "/home/kwan/catkin_ws/src/husky_controller/husky_traj/square.txt";
 
     FILE *traj_file = NULL;
     traj_file = fopen(textfile_location.c_str(), "r");
@@ -631,13 +650,10 @@ unsigned int HuskyController::ReadTextFileHusky(Eigen::VectorXd &x_traj, Eigen::
             traj_length++;
     }
 
-    if(traj_length > 100000)
-        traj_length = 100000;
-
     fseek(traj_file, 0L, SEEK_SET);
     traj_length -= 1;
 
-    std::cout << traj_length << std::endl;
+    std::cout << "Whole trajectory ticks are : " << traj_length << std::endl; 
 
     double time[traj_length + 1],
         ref_position_x[traj_length + 1],
@@ -697,41 +713,43 @@ void HuskyController::moveHuskyPositionVelocity(Eigen::Vector2d input_velocity)
     wheel_vel(2) = wL;
     wheel_vel(1) = wR;
     wheel_vel(3) = wR;
-
-    saveData();
-    // std::cout << "left wheel vel: " << wL << " right wheel vel" << wR << std::endl;
-    // std::cout << "wheel_vel_measured_ : " << wheel_vel_measured_.transpose() << std::endl;
 }
 
 void HuskyController::moveEndEffector(bool is_grip)
 {
-    if (is_grip == false)
-        ee_ << 5.0, 5.0;
-    else if (is_grip == true)   // grasp
-        ee_ << 0.0, 0.0;
+    if (is_grip == false) // q
+        ee_ << 0.04, 0.04;
+    else if (is_grip == true)   // grasp, w
+        ee_ << 0, 0;
 }
 
 void HuskyController::printData()
 {
+    std::cout << "time: " << cur_time_  << "\n" 
+              << "contact force: " << ee_contact_ << std::endl;
 
-    std::cout << "lin_vel_: " << sqrt(velocity_sensor_(0)*velocity_sensor_(0) + velocity_sensor_(1)*velocity_sensor_(1))
-         << std::endl;
-    std::cout << "ang_vel_: " << velocity_sensor_(5) << "\n"
-         << std::endl;
-
-    // std::cout << cur_time_ << "\t" << force_sensor_.transpose() << "\t" << torque_sensor_.transpose() << "\t" << ee_contact_ << "\n"
-    //           << std::endl;
+    // std::cout << "time: " << cur_time_  << "\n" 
+    //           << "v: " << sqrt(velocity_sensor_(0)*velocity_sensor_(0) + velocity_sensor_(1)*velocity_sensor_(1)) << "\n"
+    //           << "w : " << velocity_sensor_(5) << "\n";
 }
 
 void HuskyController::saveData()
 {
-    fout << cur_time_ << "\t" << force_sensor_.transpose() << "\t" << torque_sensor_.transpose() << "\t" << ee_contact_ << "\n"
-         << std::endl;
+    if(is_save_ == true)
+    {   
+        // FT
+        fout << cur_time_ << " " 
+             << ee_contact_ << "\n";
 
-    // fout << position_sensor_.transpose() << "\t"
-    //      << sqrt(velocity_sensor_(0)*velocity_sensor_(0) + velocity_sensor_(1)*velocity_sensor_(1)) << "\t"
-    //      << velocity_sensor_(5)
-    //      << std::endl;
+        // v,w 
+        // fout << cur_time_ << " "  
+        //      << position_sensor_(0) << " "
+        //      << position_sensor_(1) << " "
+        //      << sqrt(velocity_sensor_(0)*velocity_sensor_(0) + velocity_sensor_(1)*velocity_sensor_(1)) << " "
+        //      << velocity_sensor_(5) << "\n";
+    }
+    
+
 }
 
 Eigen::MatrixXd HuskyController::JacobianUpdate(Eigen::Vector7d qd_)

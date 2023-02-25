@@ -61,7 +61,7 @@ class HuskyController
         void printData();
     
     private:
-        double hz_ = 2000;
+        double hz_;
         double cur_time_;
         double pre_time_;
         double init_time_;
@@ -87,7 +87,7 @@ class HuskyController
 
         bool is_init_ = true;
         bool is_read_ = true;
-        bool is_save_ = false;
+        bool is_save_ = true;
         
         double sim_time_ = 0.0;
 

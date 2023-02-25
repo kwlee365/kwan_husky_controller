@@ -14,6 +14,8 @@ public:
 
     double sim_time_;
 
+    double hz_ = 100.0; // Simulation hz
+
     std::string sim_mode_ = "torque";
 
     int num_dof_;

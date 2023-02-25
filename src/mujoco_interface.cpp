@@ -16,7 +16,7 @@ MujocoInterface::~MujocoInterface()
 
 void MujocoInterface::stateUpdate() // Thread 1
 {
-    ros::Rate r(2000); // 2000 Hz
+    ros::Rate r(dc_.hz_); // 2000 Hz
     while (ros::ok())
     {
         ros::spinOnce();
@@ -106,7 +106,7 @@ void MujocoInterface::simStatusCallback(const mujoco_ros_msgs::SimStatusConstPtr
 
 void MujocoInterface::sendCommand(int control_mode) // Thread 3 (compute -> MuJoCo)
 {
-    ros::Rate r(2000);
+    ros::Rate r(dc_.hz_);
 
     while (ros::ok())
     {
